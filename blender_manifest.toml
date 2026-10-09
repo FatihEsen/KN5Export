@@ -1,0 +1,15 @@
+schema_version = "1.0.0"
+
+id = "kn5_studio"
+version = "2.6.0"
+name = "Assetto Corsa KN5 Studio"
+tagline = "Assetto Corsa KN5 Exporter/Importer, AI Line (.ai), Track Splines (.csv), and Camera Tools"
+maintainer = "Antigravity & Fatih"
+type = "add-on"
+
+tags = ["Import-Export", "Assetto Corsa", "AI Line", "Track Splines", "Game Engine", "Sim Racing"]
+
+blender_version_min = "3.6.0"
+license = [
+  "SPDX:CC0-1.0"
+]
