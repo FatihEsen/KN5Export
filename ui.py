@@ -65,14 +65,14 @@ class KN5_PT_SidebarMain(bpy.types.Panel):
         layout = self.layout
 
         box = layout.box()
-        box.label(text="KN5 Quick Actions", icon='FILE_REFRESH')
+        box.label(text="⚡ KN5 Quick Actions", icon='FILE_REFRESH')
         row = box.row(align=True)
         row.scale_y = 1.3
         row.operator("export_scene.kn5", text="Export KN5", icon='EXPORT')
         row.operator("import_scene.kn5", text="Import KN5", icon='IMPORT')
 
         box_val = layout.box()
-        box_val.label(text="Scene Health", icon='CHECKMARK')
+        box_val.label(text="✔ Scene Health", icon='CHECKMARK')
         row = box_val.row(align=True)
         row.operator("kn5.validate_scene", text="Validate", icon='VIEWZOOM')
         row.operator("kn5.auto_fix_scene", text="Auto-Fix", icon='MODIFIER')
@@ -102,7 +102,7 @@ def _draw_checklist_row(box_check, context, label, is_ok, role_name):
 
 class KN5_PT_Step1Setup(bpy.types.Panel):
     """Step 1: car/track structure, naming, wheel rig and spawns."""
-    bl_label = "1 — Setup: Structure & Rig"
+    bl_label = "🏎️ 1 — Setup: Structure & Rig"
     bl_idname = "KN5_PT_Step1Setup"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -116,7 +116,7 @@ class KN5_PT_Step1Setup(bpy.types.Panel):
 
         # 1A. Hierarchy helpers
         box = layout.box()
-        box.label(text="Car Hierarchy", icon='OUTLINER_OB_ARMATURE')
+        box.label(text="⚡ Car Hierarchy", icon='OUTLINER_OB_ARMATURE')
         col = box.column(align=True)
         col.operator("kn5.setup_car_hierarchy", text="Create Standard Hierarchy", icon='ADD')
         col.operator("kn5.create_missing_dummies", text="Create Missing Dummies", icon='ADD')
@@ -147,7 +147,7 @@ class KN5_PT_Step1Setup(bpy.types.Panel):
 
         # 1C. Live checklist (compact)
         bc = layout.box()
-        bc.label(text="Checklist", icon='CHECKBOX_HLT')
+        bc.label(text="📋 Checklist", icon='CHECKBOX_HLT')
         _draw_checklist_row(bc, context, "COCKPIT_HR",
                             any("COCKPIT_HR" in o.name for o in scene_objs), "COCKPIT_HR")
         _draw_checklist_row(bc, context, "STEER_HR",
@@ -173,7 +173,7 @@ class KN5_PT_Step1Setup(bpy.types.Panel):
 
         # 1D. Wheels, driver, cameras rig
         bw = layout.box()
-        bw.label(text="Rig: Wheels / Driver / Cameras", icon='MOD_ARMATURE')
+        bw.label(text="🛞 Rig: Wheels / Driver / Cameras", icon='MOD_ARMATURE')
         col = bw.column(align=True)
         col.operator("kn5.auto_rig_wheels", text="Auto-Rig Wheels & Rims", icon='AUTO')
         col.operator("kn5.create_driver_dummies", text="Add Driver Dummies", icon='EMPTY_AXIS')
@@ -181,7 +181,7 @@ class KN5_PT_Step1Setup(bpy.types.Panel):
 
         # 1E. Track spawns + surfaces
         bt = layout.box()
-        bt.label(text="Track: Spawns & Surfaces", icon='EMPTY_AXIS')
+        bt.label(text="🏁 Track: Spawns & Surfaces", icon='EMPTY_AXIS')
         col = bt.column(align=True)
         for prefix, label, _desc in TRACK_DUMMIES[:5]:
             op = col.operator("kn5.create_track_dummy", text=f"+ {label}")
@@ -199,7 +199,7 @@ class KN5_PT_Step1Setup(bpy.types.Panel):
 
 class KN5_PT_Step2Materials(bpy.types.Panel):
     """Step 2: shaders, transparency, paint, AO and lights."""
-    bl_label = "2 — Materials, Paint & Light"
+    bl_label = "🎨 2 — Materials, Paint & Light"
     bl_idname = "KN5_PT_Step2Materials"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -210,7 +210,7 @@ class KN5_PT_Step2Materials(bpy.types.Panel):
         layout = self.layout
 
         bm = layout.box()
-        bm.label(text="Shader Setup", icon='MATERIAL')
+        bm.label(text="🎨 Shader Setup", icon='MATERIAL')
         col = bm.column(align=True)
         col.operator("kn5.auto_detect_all_materials", text="Auto-Configure All Materials", icon='AUTO')
         col.operator("kn5.setup_transparent_meshes", text="Auto-Configure Glass", icon='SHADING_RENDERED')
@@ -218,14 +218,14 @@ class KN5_PT_Step2Materials(bpy.types.Panel):
         col.operator("kn5.generate_csp_config", text="Generate CSP Config", icon='SCRIPT')
 
         ba = layout.box()
-        ba.label(text="Paint & Skins", icon='SHADING_RENDERED')
+        ba.label(text="🖌️ Paint & Skins", icon='SHADING_RENDERED')
         col = ba.column(align=True)
         col.operator("kn5.bake_car_ao", text="Bake Car Body AO", icon='RENDER_STILL')
         col.operator("kn5.sync_car_skins", text="Sync Textures to Skins", icon='FILE_REFRESH')
         col.operator("kn5.create_clean_paint", text="Create Clean Paint", icon='COLOR')
 
         bl = layout.box()
-        bl.label(text="Lights (lights.ini)", icon='LIGHT_SUN')
+        bl.label(text="💡 Lights (lights.ini)", icon='LIGHT_SUN')
         col = bl.column(align=True)
         col.operator("kn5.detect_light_meshes", text="Auto-Detect Light Meshes", icon='AUTO')
         col.operator("kn5.add_light_entry", text="Add Active Mesh as Light", icon='ADD')
@@ -270,7 +270,7 @@ class KN5_PT_Step2Materials(bpy.types.Panel):
 
 class KN5_PT_Step3Export(bpy.types.Panel):
     """Step 3: physics sync, cameras, track data and animation helpers."""
-    bl_label = "3 — Export & Data Sync"
+    bl_label = "🚀 3 — Export & Data Sync"
     bl_idname = "KN5_PT_Step3Export"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -281,7 +281,7 @@ class KN5_PT_Step3Export(bpy.types.Panel):
         layout = self.layout
 
         bp = layout.box()
-        bp.label(text="Physics & Engine Data", icon='MOD_PHYSICS')
+        bp.label(text="⚙️ Physics & Engine Data", icon='MOD_PHYSICS')
         col = bp.column(align=True)
         col.operator("kn5.sync_model_to_physics_ini", text="Sync Model → Physics INIs", icon='FILE_REFRESH')
         col.operator("kn5.align_wheels_physics", text="Check Wheels vs INI", icon='SNAP_VERTEX')
@@ -289,7 +289,7 @@ class KN5_PT_Step3Export(bpy.types.Panel):
         col.operator("kn5.export_driver_knh", text="Export driver_base_pos.knh", icon='EXPORT')
 
         bc = layout.box()
-        bc.label(text="Cameras", icon='CAMERA_DATA')
+        bc.label(text="🎥 Cameras", icon='CAMERA_DATA')
         col = bc.column(align=True)
         col.operator("kn5.sync_cameras_to_ini", text="Sync Cameras → INI", icon='FILE_REFRESH')
         row = col.row(align=True)
@@ -302,7 +302,7 @@ class KN5_PT_Step3Export(bpy.types.Panel):
             op.camera_type = ctype
 
         bt = layout.box()
-        bt.label(text="Track Data: AI / Spline / INI", icon='CURVE_DATA')
+        bt.label(text="🛣️ Track Data: AI / Spline / INI", icon='CURVE_DATA')
         row = bt.row(align=True)
         row.operator("import_scene.ac_ai", text="Import .AI", icon='IMPORT')
         row.operator("export_scene.ac_ai", text="Export .AI", icon='EXPORT')
@@ -315,7 +315,7 @@ class KN5_PT_Step3Export(bpy.types.Panel):
         bt.operator("import_scene.ac_fbx_ini", text="Apply .fbx.ini Settings", icon='COLOR')
 
         ba = layout.box()
-        ba.label(text="Animation (via ksEditor)", icon='ANIM')
+        ba.label(text="🎬 Animation (via ksEditor)", icon='ANIM')
         ba.label(text="Cursor = hinge, then FBX → .ksanim.")
         ba.operator("kn5.create_part_animation", text="Create Animation Pivot", icon='EMPTY_AXIS')
         ba.operator("kn5.export_animation_fbx", text="Export FBX for ksEditor", icon='EXPORT')
