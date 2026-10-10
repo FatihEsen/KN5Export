@@ -101,8 +101,8 @@ def _draw_checklist_row(box_check, context, label, is_ok, role_name):
 # ---------------------------------------------------------------------------
 
 class KN5_PT_Step1Setup(bpy.types.Panel):
-    """Step 1: car/track structure, naming, wheel rig and spawns."""
-    bl_label = "🏎️ 1 — Setup: Structure & Rig"
+    """Step 1: car structure, naming, wheel rig and driver."""
+    bl_label = "🏎️ 1 — Car Setup: Structure & Rig"
     bl_idname = "KN5_PT_Step1Setup"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -179,27 +179,14 @@ class KN5_PT_Step1Setup(bpy.types.Panel):
         col.operator("kn5.create_driver_dummies", text="Add Driver Dummies", icon='EMPTY_AXIS')
         col.operator("kn5.setup_car_cameras", text="Setup Camera Rig", icon='CAMERA_DATA')
 
-        # 1E. Track spawns + surfaces
-        bt = layout.box()
-        bt.label(text="🏁 Track: Spawns & Surfaces", icon='EMPTY_AXIS')
-        col = bt.column(align=True)
-        for prefix, label, _desc in TRACK_DUMMIES[:5]:
-            op = col.operator("kn5.create_track_dummy", text=f"+ {label}")
-            op.dummy_type = prefix
-        bt.label(text="Surface tag:")
-        grid = bt.grid_flow(columns=3, align=True)
-        for prefix, _label, _desc in TRACK_SURFACES:
-            op = grid.operator("kn5.tag_surface", text=prefix)
-            op.surface_prefix = prefix + "_"
-
 
 # ---------------------------------------------------------------------------
-# STEP 2 — Materials, paint, lights
+# STEP 2 — Car materials, paint, lights
 # ---------------------------------------------------------------------------
 
 class KN5_PT_Step2Materials(bpy.types.Panel):
-    """Step 2: shaders, transparency, paint, AO and lights."""
-    bl_label = "🎨 2 — Materials, Paint & Light"
+    """Step 2: car shaders, transparency, paint, AO and lights."""
+    bl_label = "🎨 2 — Car Materials, Paint & Light"
     bl_idname = "KN5_PT_Step2Materials"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -269,8 +256,8 @@ class KN5_PT_Step2Materials(bpy.types.Panel):
 # ---------------------------------------------------------------------------
 
 class KN5_PT_Step3Export(bpy.types.Panel):
-    """Step 3: physics sync, cameras, track data and animation helpers."""
-    bl_label = "🚀 3 — Export & Data Sync"
+    """Step 3: car physics sync, cameras and animation helpers."""
+    bl_label = "🚀 3 — Car Export & Data Sync"
     bl_idname = "KN5_PT_Step3Export"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -319,6 +306,51 @@ class KN5_PT_Step3Export(bpy.types.Panel):
         ba.label(text="Cursor = hinge, then FBX → .ksanim.")
         ba.operator("kn5.create_part_animation", text="Create Animation Pivot", icon='EMPTY_AXIS')
         ba.operator("kn5.export_animation_fbx", text="Export FBX for ksEditor", icon='EXPORT')
+
+
+# ---------------------------------------------------------------------------
+# TRACK — separate section at the bottom (spawns, surfaces, AI, splines)
+# ---------------------------------------------------------------------------
+
+class KN5_PT_TrackTools(bpy.types.Panel):
+    """Track-only tools, kept separate from car workflow."""
+    bl_label = "🏁 Track: Spawns, Surfaces & Data"
+    bl_idname = "KN5_PT_TrackTools"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "KN5 Studio"
+    bl_parent_id = "KN5_PT_SidebarMain"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+
+        bs = layout.box()
+        bs.label(text="🏁 Spawns & Timing", icon='EMPTY_AXIS')
+        col = bs.column(align=True)
+        for prefix, label, _desc in TRACK_DUMMIES[:5]:
+            op = col.operator("kn5.create_track_dummy", text=f"+ {label}")
+            op.dummy_type = prefix
+
+        bf = layout.box()
+        bf.label(text="🛣️ Surface Tag", icon='MOD_PHYSICS')
+        grid = bf.grid_flow(columns=3, align=True)
+        for prefix, _label, _desc in TRACK_SURFACES:
+            op = grid.operator("kn5.tag_surface", text=prefix)
+            op.surface_prefix = prefix + "_"
+
+        bt = layout.box()
+        bt.label(text="🛣️ AI / Spline / Cameras", icon='CURVE_DATA')
+        row = bt.row(align=True)
+        row.operator("import_scene.ac_ai", text="Import .AI", icon='IMPORT')
+        row.operator("export_scene.ac_ai", text="Export .AI", icon='EXPORT')
+        row = bt.row(align=True)
+        row.operator("import_scene.ac_csv", text="Import .CSV", icon='IMPORT')
+        row.operator("export_scene.ac_csv", text="Export .CSV", icon='EXPORT')
+        row = bt.row(align=True)
+        row.operator("import_scene.ac_ini", text="Import .INI", icon='IMPORT')
+        row.operator("export_scene.ac_ini", text="Export .INI", icon='EXPORT')
+        bt.operator("import_scene.ac_fbx_ini", text="Apply .fbx.ini Settings", icon='COLOR')
 
 
 # ---------------------------------------------------------------------------
@@ -461,6 +493,7 @@ REGISTER_CLASSES = (
     KN5_PT_Step1Setup,
     KN5_PT_Step2Materials,
     KN5_PT_Step3Export,
+    KN5_PT_TrackTools,
     KN5_PT_MaterialProperties,
     KN5_PT_ObjectProperties,
 )
