@@ -279,6 +279,8 @@ class KN5Importer:
             # Assign custom split corner normals
             custom_normals = [convert_ac_to_blender_vector(kn5_mesh.vertices[loop.vertex_index].normal) for loop in mesh.loops]
             mesh.normals_split_custom_set(custom_normals)
+            if hasattr(mesh, "use_auto_smooth"):
+                mesh.use_auto_smooth = True
 
         # 4. Assign Material
         if 0 <= kn5_mesh.material_id < len(self.loaded_materials):

@@ -32,6 +32,7 @@ try:
     )
     from .dds import (
         is_dds_bytes,
+        image_to_bgra_dds,
         rgba_pixels_to_bgra_dds,
         build_dds_header_uncompressed_bgra,
         create_flat_normal_map_dds,
@@ -57,6 +58,7 @@ except (ImportError, ValueError):
     )
     from dds import (
         is_dds_bytes,
+        image_to_bgra_dds,
         rgba_pixels_to_bgra_dds,
         build_dds_header_uncompressed_bgra,
         create_flat_normal_map_dds,
@@ -349,6 +351,11 @@ class KN5Exporter:
                     self.warnings.append(f"Auto-parented '{obj.name}' under '{dummy.name}' for KN5 export.")
 
     def _get_target_objects(self) -> List[bpy.types.Object]:
+        if "target_objects" in self.options and self.options["target_objects"] is not None:
+            return [o for o in self.options["target_objects"] if not o.name.startswith("__")]
+        if self.options.get("target_collection"):
+            col = self.options["target_collection"]
+            return [o for o in col.all_objects if not o.name.startswith("__")]
         if self.options.get("selection_only", False):
             selected = [o for o in self.context.selected_objects if not o.name.startswith("__")]
             if not selected:
@@ -577,8 +584,7 @@ class KN5Exporter:
         # 3. Convert image pixels directly to 32-bit BGRA DDS
         if hasattr(image, "size") and image.size[0] > 0 and image.size[1] > 0:
             try:
-                pixels = list(image.pixels)
-                return rgba_pixels_to_bgra_dds(pixels, image.size[0], image.size[1], fallback_alpha=0.35)
+                return image_to_bgra_dds(image, fallback_alpha=0.35)
             except Exception as e:
                 self.warnings.append(f"Failed to convert image '{image.name}' to DDS: {e}")
 
@@ -752,6 +758,13 @@ class KN5Exporter:
         bm.to_mesh(mesh)
         bm.free()
 
+        # Ensure custom split normals are evaluated (Blender <= 4.0 backwards compatibility)
+        if hasattr(mesh, "calc_normals_split"):
+            try:
+                mesh.calc_normals_split()
+            except Exception:
+                pass
+
         # Ensure tangents
         mesh.calc_loop_triangles()
         has_uv = bool(mesh.uv_layers)
@@ -811,6 +824,8 @@ class KN5Exporter:
                     loop = mesh_loops[loop_idx]
                     raw_pos = mesh_verts[loop.vertex_index].co
                     raw_norm = loop.normal
+                    if raw_norm.length_squared < 1e-6:
+                        raw_norm = mesh_verts[loop.vertex_index].normal
                     raw_tangent = getattr(loop, "tangent", mathutils.Vector((1.0, 0.0, 0.0)))
 
                     if has_scale:
@@ -1000,12 +1015,148 @@ class ExportKN5(bpy.types.Operator, ExportHelper):
             return {'CANCELLED'}
 
 
+def find_lod_collections(scene) -> Dict[str, bpy.types.Collection]:
+    """Finds LOD collections matching standard Assetto Corsa naming conventions."""
+    patterns = {
+        "LOD_A": r"(?:^|[_\s-])(?:lod[_\s-]?0|lod[_\s-]?a|main|body[_\s-]?lod0)(?:$|[_\s-])",
+        "LOD_B": r"(?:^|[_\s-])(?:lod[_\s-]?1|lod[_\s-]?b|body[_\s-]?lod1)(?:$|[_\s-])",
+        "LOD_C": r"(?:^|[_\s-])(?:lod[_\s-]?2|lod[_\s-]?c|body[_\s-]?lod2)(?:$|[_\s-])",
+        "LOD_D": r"(?:^|[_\s-])(?:lod[_\s-]?3|lod[_\s-]?d|body[_\s-]?lod3)(?:$|[_\s-])",
+        "COLLIDER": r"(?:^|[_\s-])(?:collider|colliders|collision)(?:$|[_\s-])",
+    }
+    found = {}
+    for col in scene.collection.children:
+        name_lower = col.name.lower()
+        for role, pattern in patterns.items():
+            if re.search(pattern, name_lower, flags=re.IGNORECASE):
+                if role not in found:
+                    found[role] = col
+    return found
+
+
+class KN5_OT_BatchExportLODs(bpy.types.Operator, ExportHelper):
+    """Batch export car LODs (LOD_A, LOD_B, LOD_C, LOD_D, COLLIDER) to separate KN5 files."""
+    bl_idname = "export_scene.kn5_batch_lods"
+    bl_label = "Batch Export LODs (.kn5)"
+    bl_description = "Export LOD collections to standard Assetto Corsa KN5 files in target folder"
+
+    filename_ext = ".kn5"
+    filter_glob: StringProperty(default="*.kn5", options={'HIDDEN'})
+
+    version: EnumProperty(
+        name="KN5 Version",
+        items=[
+            ("5", "Version 5 (Universal)", "Standard non-DLC version supported by all AC versions & Content Manager"),
+            ("6", "Version 6", "Version 6 format with DLC tag header"),
+        ],
+        default="5"
+    )
+
+    texture_mode: EnumProperty(
+        name="Textures",
+        items=[
+            ("EMBEDDED_DDS", "Embedded DDS", "Pack textures as embedded DDS inside the KN5 container"),
+            ("EXTERNAL", "External References", "Reference texture files externally (smaller KN5)"),
+        ],
+        default="EMBEDDED_DDS"
+    )
+
+    apply_modifiers: BoolProperty(
+        name="Apply Modifiers",
+        description="Apply modifiers to meshes during export",
+        default=True
+    )
+
+    auto_detect_materials: BoolProperty(
+        name="Auto-Detect Shaders",
+        default=True
+    )
+
+    auto_fix_wheels: BoolProperty(
+        name="Auto-Rig Wheels & Rims",
+        default=True
+    )
+
+    def draw(self, context):
+        layout = self.layout
+        box = layout.box()
+        box.label(text="Batch LOD Settings", icon='SETTINGS')
+        box.prop(self, "version")
+        box.prop(self, "texture_mode")
+        box.prop(self, "apply_modifiers")
+        box.prop(self, "auto_detect_materials")
+        box.prop(self, "auto_fix_wheels")
+
+        lods = find_lod_collections(context.scene)
+        box_lods = layout.box()
+        box_lods.label(text="Detected LOD Collections:", icon='GROUP')
+        if lods:
+            for role, col in sorted(lods.items()):
+                box_lods.label(text=f"• {role} -> '{col.name}'", icon='CHECKMARK')
+        else:
+            box_lods.label(text="No LOD collections found! Name collections LOD_A, LOD_B, etc.", icon='ERROR')
+
+    def execute(self, context):
+        base_dir = os.path.dirname(os.path.abspath(self.filepath))
+        base_name = os.path.splitext(os.path.basename(self.filepath))[0]
+        clean_car_name = re.sub(r"_lod_[a-d]$", "", base_name, flags=re.IGNORECASE)
+
+        lods = find_lod_collections(context.scene)
+        if not lods:
+            self.report({'ERROR'}, "No LOD collections detected in scene! Create collections like LOD_A, LOD_B, COLLIDER.")
+            return {'CANCELLED'}
+
+        exported = []
+        errors = []
+
+        mapping = {
+            "LOD_A": f"{clean_car_name}.kn5",
+            "LOD_B": f"{clean_car_name}_lod_b.kn5",
+            "LOD_C": f"{clean_car_name}_lod_c.kn5",
+            "LOD_D": f"{clean_car_name}_lod_d.kn5",
+            "COLLIDER": "collider.kn5",
+        }
+
+        for role, col in lods.items():
+            out_filename = mapping.get(role, f"{clean_car_name}_{role.lower()}.kn5")
+            out_path = os.path.join(base_dir, out_filename)
+
+            options = {
+                "version": int(self.version),
+                "texture_mode": self.texture_mode,
+                "apply_modifiers": self.apply_modifiers,
+                "auto_detect_materials": self.auto_detect_materials,
+                "auto_fix_wheels": self.auto_fix_wheels,
+                "target_collection": col,
+            }
+
+            try:
+                exporter = KN5Exporter(context, out_path, options)
+                model = exporter.export()
+                model.to_file(out_path)
+                size_mb = os.path.getsize(out_path) / (1024 * 1024)
+                exported.append(f"{out_filename} ({size_mb:.2f} MB, {exporter.total_meshes} meshes)")
+            except Exception as e:
+                errors.append(f"{out_filename}: {e}")
+
+        if errors:
+            self.report({'WARNING'}, f"Batch exported {len(exported)} file(s), {len(errors)} error(s). See console.")
+            for err in errors:
+                print(f"[Batch LOD Error] {err}")
+        else:
+            self.report({'INFO'}, f"Batch Export Complete: {', '.join(exported)}")
+
+        return {'FINISHED'}
+
+
 def menu_func_export(self, context):
     self.layout.operator(ExportKN5.bl_idname, text="Assetto Corsa (.kn5)")
+    self.layout.operator(KN5_OT_BatchExportLODs.bl_idname, text="Assetto Corsa Batch LODs (.kn5)")
 
 
 REGISTER_CLASSES = (
     ExportKN5,
+    KN5_OT_BatchExportLODs,
 )
 
 
@@ -1025,3 +1176,4 @@ def unregister():
             bpy.utils.unregister_class(cls)
         except Exception:
             pass
+

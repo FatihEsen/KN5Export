@@ -22,6 +22,7 @@ try:
         DEFAULT_SHADER_PROPERTIES,
         MATERIAL_PRESETS,
         match_material_preset,
+        clean_texture_name,
     )
 except (ImportError, ValueError):
     from constants import (
@@ -31,6 +32,7 @@ except (ImportError, ValueError):
         DEFAULT_SHADER_PROPERTIES,
         MATERIAL_PRESETS,
         match_material_preset,
+        clean_texture_name,
     )
 
 
@@ -814,6 +816,7 @@ class KN5_OT_AuditRepairTextures(bpy.types.Operator):
 class KN5_OT_AddShaderProperty(bpy.types.Operator):
     bl_idname = "kn5.add_shader_property"
     bl_label = "Add Shader Property"
+    bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         mat = context.material
@@ -824,6 +827,7 @@ class KN5_OT_AddShaderProperty(bpy.types.Operator):
 class KN5_OT_RemoveShaderProperty(bpy.types.Operator):
     bl_idname = "kn5.remove_shader_property"
     bl_label = "Remove Shader Property"
+    bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         ac = context.material.assettoCorsa
@@ -835,6 +839,7 @@ class KN5_OT_RemoveShaderProperty(bpy.types.Operator):
 class KN5_OT_AddTextureSlot(bpy.types.Operator):
     bl_idname = "kn5.add_texture_slot"
     bl_label = "Add Texture Slot"
+    bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         mat = context.material
@@ -845,6 +850,7 @@ class KN5_OT_AddTextureSlot(bpy.types.Operator):
 class KN5_OT_RemoveTextureSlot(bpy.types.Operator):
     bl_idname = "kn5.remove_texture_slot"
     bl_label = "Remove Texture Slot"
+    bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         ac = context.material.assettoCorsa
@@ -905,11 +911,19 @@ class KN5_OT_GenerateCSPConfig(bpy.types.Operator):
 
         paint_mats = []
         chrome_mats = []
+        windscreen_mats = []
+        glass_mats = []
         for mat in bpy.data.materials:
             n_low = mat.name.lower()
             if any(k in n_low for k in ["chrome", "krom", "badge", "exhaust", "emblem"]):
                 if mat.name not in chrome_mats:
                     chrome_mats.append(mat.name)
+            elif any(k in n_low for k in ["windscreen", "windshield", "on_cam", "cam_on"]):
+                if mat.name not in windscreen_mats:
+                    windscreen_mats.append(mat.name)
+            elif any(k in n_low for k in ["glass", "cam", "window", "pencere"]):
+                if mat.name not in glass_mats:
+                    glass_mats.append(mat.name)
             elif any(k in n_low for k in ["body", "paint", "carpaint", "ext_body"]):
                 if mat.name not in paint_mats:
                     paint_mats.append(mat.name)
@@ -936,13 +950,21 @@ class KN5_OT_GenerateCSPConfig(bpy.types.Operator):
             c_list = ", ".join(chrome_mats)
             new_blocks.append(f"[Material_Chrome]\nMaterials = {c_list}\nMetalness = 0.95\nRoughness = 0.05")
 
+        if windscreen_mats and "[Material_Windscreen]" not in existing_content:
+            w_list = ", ".join(windscreen_mats)
+            new_blocks.append(f"[Material_Windscreen]\nMaterials = {w_list}\nCarInterior = COCKPIT_HR\nMaskPass = 1")
+
+        if glass_mats and "[Material_Glass]" not in existing_content:
+            g_list = ", ".join(glass_mats)
+            new_blocks.append(f"[Material_Glass]\nMaterials = {g_list}\nThickness = 0.005")
+
         if new_blocks:
             separator = "\n\n" if existing_content and not existing_content.endswith("\n\n") else ""
             with open(ext_ini_path, "a", encoding="utf-8") as f:
                 f.write(separator + "\n\n".join(new_blocks) + "\n")
-            self.report({'INFO'}, f"Updated {ext_ini_path} with CSP Car Paint & Chrome PBR!")
+            self.report({'INFO'}, f"Updated {ext_ini_path} with CSP Paint, Chrome, RainFX Windscreen & Glass!")
         else:
-            self.report({'INFO'}, "CSP Car Paint & Chrome sections are already present in ext_config.ini.")
+            self.report({'INFO'}, "CSP extension sections are already up to date in ext_config.ini.")
 
         return {'FINISHED'}
 

@@ -70,6 +70,8 @@ class KN5_PT_SidebarMain(bpy.types.Panel):
         row.scale_y = 1.3
         row.operator("export_scene.kn5", text="Export KN5", icon='EXPORT')
         row.operator("import_scene.kn5", text="Import KN5", icon='IMPORT')
+        row_batch = box.row(align=True)
+        row_batch.operator("export_scene.kn5_batch_lods", text="Batch Export LODs", icon='DUPLICATE')
 
         # Pre-flight Scene Validator
         box_val = layout.box()

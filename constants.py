@@ -2,6 +2,7 @@
 # Developed for Blender 3.6 LTS, 4.x, and 5.x
 
 import re
+import os
 
 
 KN5_MAGIC = b"sc6969"
@@ -446,4 +447,26 @@ def match_material_preset(material_name: str):
                 return preset_key
 
     return None
+
+
+def clean_texture_name(name: str, force_dds: bool = False) -> str:
+    """
+    Cleans up a texture filename:
+    1. Removes any directory paths (returns basename only).
+    2. Strips Blender duplicate numeric suffixes (e.g. .001, .002).
+    3. Prevents duplicate extensions like .dds.dds.
+    4. If force_dds is True, ensures the extension is .dds.
+    """
+    if not name:
+        return ""
+    name = os.path.basename(name.replace("\\", "/")).strip()
+    # Strip Blender duplicate suffix e.g. .001, .002 (either at end or before extension)
+    name = re.sub(r'\.\d{3,}(?=\.[a-zA-Z0-9]+$|$)', '', name)
+    while name.lower().endswith(".dds.dds"):
+        name = name[:-4]
+    if force_dds:
+        root, _ = os.path.splitext(name)
+        name = root + ".dds"
+    return name
+
 

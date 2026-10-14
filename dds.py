@@ -4,6 +4,12 @@
 import struct
 import os
 
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+
 DDS_MAGIC = b"DDS "
 
 # DDSD (DirectDraw Surface Description) Flags
@@ -84,7 +90,7 @@ def parse_dds_header(data: bytes) -> DDSInfo:
         info.format_name = fourcc.decode("ascii", errors="ignore").strip("\0")
     elif pf_flags & DDPF_RGB:
         info.is_compressed = False
-        r_mask, g_mask, b_mask, a_mask = struct.unpack("<4I", data[96:112])
+        r_mask, g_mask, b_mask, a_mask = struct.unpack("<4I", data[92:108])
         if rgb_bits == 32:
             if b_mask == 0x000000FF and r_mask == 0x00FF0000:
                 info.format_name = "B8G8R8A8"
@@ -249,12 +255,63 @@ def create_solid_color_dds(r: int = 255, g: int = 255, b: int = 255, a: int = 25
     return header + (pixel * (width * height))
 
 
-def rgba_pixels_to_bgra_dds(pixels: list, width: int, height: int, fallback_alpha: float = 1.0) -> bytes:
+def image_to_bgra_dds(image, fallback_alpha: float = 1.0) -> bytes:
     """
-    Converts a flat list of normalized RGBA float pixels (from Blender image.pixels)
+    Directly converts a Blender Image data-block into uncompressed 32-bit BGRA DDS bytes.
+    Optimized to use foreach_get with numpy for extreme performance, avoiding
+    creating millions of Python float objects.
+    """
+    if not image or not hasattr(image, "size") or image.size[0] <= 0 or image.size[1] <= 0:
+        return build_dds_header_uncompressed_bgra(1, 1) + b"\xFF\xFF\xFF\xFF"
+
+    width, height = int(image.size[0]), int(image.size[1])
+    num_pixels = width * height
+
+    if HAS_NUMPY:
+        try:
+            arr = np.empty(num_pixels * 4, dtype=np.float32)
+            if hasattr(image.pixels, "foreach_get"):
+                image.pixels.foreach_get(arr)
+            else:
+                arr[:] = image.pixels
+            arr = arr.reshape((height, width, 4))
+            # Blender pixels are stored bottom-to-top; DirectX DDS expects top-to-bottom
+            arr = np.flipud(arr)
+            # Alpha check
+            has_valid_alpha = bool(np.any(arr[..., 3] > 0.01))
+            if not has_valid_alpha:
+                arr[..., 3] = fallback_alpha
+            arr = np.clip(arr * 255.0 + 0.5, 0, 255).astype(np.uint8)
+            # Reorder RGBA to BGRA
+            bgra = arr[..., [2, 1, 0, 3]].tobytes()
+            header = build_dds_header_uncompressed_bgra(width, height)
+            return header + bgra
+        except Exception:
+            pass
+
+    return rgba_pixels_to_bgra_dds(list(image.pixels), width, height, fallback_alpha)
+
+
+def rgba_pixels_to_bgra_dds(pixels, width: int, height: int, fallback_alpha: float = 1.0) -> bytes:
+    """
+    Converts a flat list or array of normalized RGBA float pixels (from Blender image.pixels)
     into a complete uncompressed 32-bit BGRA DDS byte buffer.
     If image has completely zero/transparent alpha throughout, replaces with fallback_alpha.
     """
+    if HAS_NUMPY:
+        try:
+            arr = np.array(pixels, dtype=np.float32).reshape((height, width, 4))
+            arr = np.flipud(arr)
+            has_valid_alpha = bool(np.any(arr[..., 3] > 0.01))
+            if not has_valid_alpha:
+                arr[..., 3] = fallback_alpha
+            arr = np.clip(arr * 255.0 + 0.5, 0, 255).astype(np.uint8)
+            bgra = arr[..., [2, 1, 0, 3]].tobytes()
+            header = build_dds_header_uncompressed_bgra(width, height)
+            return header + bgra
+        except Exception:
+            pass
+
     header = build_dds_header_uncompressed_bgra(width, height)
     num_pixels = width * height
     pixel_data = bytearray(num_pixels * 4)
